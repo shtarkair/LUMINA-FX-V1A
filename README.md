@@ -1,0 +1,31 @@
+# Lumina FX V1A — DMX Lighting Controller (Mac)
+
+A professional DMX lighting controller for macOS with MIDI support, cue management, and live show features.
+
+## Installation (Mac)
+
+1. Download **Lumina-FX-V1A-Mac.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V1A/releases)
+2. Unzip the file
+3. Double-click **Lumina FX.app**
+4. That's it! The app will set itself up on first run
+
+On first launch, the app will automatically install any required components. This may take a minute.
+
+## Requirements
+
+- macOS 12.0 or later
+- Internet connection (first run only)
+
+## Features
+
+- DMX universe control (512 channels)
+- MIDI controller support (M-Audio and others)
+- Cue list with sequences
+- Live show controls (BPM, master fader, effects)
+- Fixture library
+- Show file save/load with USB support
+- Undo/Redo
+
+## Windows
+
+A Windows version is coming soon.
