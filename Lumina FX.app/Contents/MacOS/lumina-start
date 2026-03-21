@@ -120,6 +120,9 @@ if [ -s "$HOME/.nvm/nvm.sh" ]; then
   source "$NVM_DIR/nvm.sh" 2>/dev/null
 fi
 
+# Ensure node's directory is in PATH (app bundles have minimal PATH)
+export PATH="$(dirname "$NODE_BIN"):$PATH:/usr/local/bin:/opt/homebrew/bin"
+
 # Find npm (same directory as node)
 NPM_BIN="$(dirname "$NODE_BIN")/npm"
 if [ ! -x "$NPM_BIN" ]; then
