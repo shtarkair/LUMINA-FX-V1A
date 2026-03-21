@@ -29,3 +29,7 @@ On first launch, the app will automatically install any required components. Thi
 ## Windows
 
 A Windows version is coming soon.
+
+## License
+
+Copyright (c) 2026 Shai Shtarker. All rights reserved. Unauthorized copying, modification, or distribution of this software is prohibited without prior written permission from the author.
