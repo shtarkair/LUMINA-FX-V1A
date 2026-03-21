@@ -18,11 +18,11 @@ On first launch, the app will automatically install any required components. Thi
 
 ## Features
 
-- DMX universe control (512 channels)
+- 64 DMX universes x 512 channels (via Ethernet — ArtNet and sACN/E1.31)
 - MIDI controller support (M-Audio and others)
 - Cue list with sequences
 - Live show controls (BPM, master fader, effects)
-- Fixture library
+- Fixture library with custom profile builder
 - Show file save/load with USB support
 - Undo/Redo
 
