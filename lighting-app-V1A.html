@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LUMINA FX v3 - Lighting Timeline Sequencer</title>
+  <title>LUMINA FX V1A - Lighting Timeline Sequencer</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; background: #0f1115; }
@@ -5508,8 +5508,12 @@ function LightingTimeline() {
   );
 }
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<LightingTimeline />);
+// Defer render to let the browser paint the splash screen first
+// This prevents the "Page Unresponsive" dialog during heavy init
+setTimeout(() => {
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<LightingTimeline />);
+}, 0);
   </script>
 </body>
 </html>
