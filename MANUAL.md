@@ -22,14 +22,23 @@
 
 ## 1. Getting Started
 
-### Installation
+### Installation (Mac)
 1. Download **Lumina-FX-V1A-Mac.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V1A/releases)
 2. Unzip the file
 3. Double-click **Lumina FX.app**
 4. On first launch, the app installs required components automatically
 
+### Installation (Windows)
+1. Download **Lumina-FX-V1A-Windows.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V1A/releases)
+2. Unzip the file
+3. Double-click **Lumina FX.vbs**
+4. On first launch, the app installs required components automatically
+
+**Note:** Windows may show a security warning on first run. Click **More info** then **Run anyway** to proceed.
+
 ### Requirements
-- macOS 12.0 or later
+- **Mac**: macOS 12.0 or later
+- **Windows**: Windows 10 or later
 - Internet connection (first run only)
 
 ---
@@ -291,16 +300,16 @@ Show files are saved as `.lumina` format containing all fixtures, cues, sequence
 
 ## 10. Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| **Space** | Play / Pause |
-| **Delete / Backspace** | Delete selected cues |
-| **Escape** | Clear selection / cancel tool |
-| **Ctrl+Z / Cmd+Z** | Undo |
-| **Ctrl+Shift+Z / Cmd+Shift+Z** | Redo |
-| **Ctrl+Y / Cmd+Y** | Redo (alternate) |
-| **Enter** | Confirm input dialogs |
-| **Shift + Click** | Multi-select cues |
+| Action | Windows | Mac |
+|--------|---------|-----|
+| Play / Pause | **Space** | **Space** |
+| Delete selected cues | **Delete** | **Delete / Backspace** |
+| Clear selection / cancel | **Escape** | **Escape** |
+| Undo | **Ctrl+Z** | **Cmd+Z** |
+| Redo | **Ctrl+Shift+Z** | **Cmd+Shift+Z** |
+| Redo (alternate) | **Ctrl+Y** | **Cmd+Y** |
+| Confirm input dialogs | **Enter** | **Enter** |
+| Multi-select cues | **Shift + Click** | **Shift + Click** |
 
 ---
 
