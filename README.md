@@ -9,6 +9,8 @@ A professional DMX lighting controller with MIDI support, cue management, and li
 3. Double-click **Lumina FX.app**
 4. That's it! The app will set itself up on first run
 
+5.  > **Note:** If the app won't open on first launch, right-click → Open, or run `xattr -cr "Lumina FX.app"` in Terminal.
+
 ## Installation (Windows)
 
 1. Download **Lumina-FX-V1A-Windows.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V1A/releases)
