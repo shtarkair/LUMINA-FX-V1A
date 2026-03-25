@@ -12,7 +12,7 @@
     ::-webkit-scrollbar-thumb { background: #333840; border-radius: 6px; border: 2px solid #0a0c10; }
     ::-webkit-scrollbar-thumb:hover { background: #4a5060; }
     input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; border-radius: 4px; outline: none; height: 28px; }
-    input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: repeating-linear-gradient(90deg, #333840 0px, #333840 1px, #1a1e26 1px, #1a1e26 8px); border: 1px solid #252930; }
+    input[type=range]::-webkit-slider-runnable-track { heiht: 6px; border-radius: 3px; background: repeating-linear-gradient(90deg, #333840 0px, #333840 1px, #1a1e26 1px, #1a1e26 8px); border: 1px solid #252930; }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff8, #e8aa22 40%, #b8880a); cursor: pointer; border: 2px solid #0f1115; margin-top: -9px; box-shadow: 0 0 10px #e8aa2288, 0 0 20px #e8aa2244, 0 2px 4px rgba(0,0,0,0.5); }
     @keyframes popIn { 0% { opacity:0; transform:scale(0.85); } 100% { opacity:1; transform:scale(1); } }
     @keyframes backdropIn { 0% { opacity:0; } 100% { opacity:1; } }
@@ -4634,7 +4634,7 @@ function LightingTimeline() {
             {luminaTab==='update' && <>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:9,color:"#555",letterSpacing:1}}>SOURCE</span>
-                <span style={{flex:1,fontSize:10,color:"#6e7681",fontFamily:"monospace"}}>github.com / lumina-mini</span>
+                <span style={{flex:1,fontSize:10,color:"#6e7681",fontFamily:"monospace"}}>github.com / shtarkair / LUMINA-FX-V1A</span>
                 <button onClick={doUpdateCheck} disabled={updateStatus==='checking'||updateStatus==='applying'||updateStatus==='restarting'} style={{padding:"6px 14px",fontSize:10,fontWeight:"bold",letterSpacing:1,background:updateStatus==='checking'?"#0a2a1a":"#0c0e12",border:"1px solid #22cc5566",color:"#22cc55",borderRadius:4,cursor:"pointer",opacity:(updateStatus==='applying'||updateStatus==='restarting')?0.3:1}}>
                   {updateStatus==='checking'?'CHECKING...':'CHECK FOR UPDATES'}
                 </button>
