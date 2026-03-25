@@ -418,20 +418,20 @@ const server = http.createServer(async (req, res) => {
 
       // Get local and remote commit info
       const localCommit = execSync('git rev-parse HEAD', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
-      const remoteCommit = execSync('git rev-parse origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+      const remoteCommit = execSync('git rev-parse origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
       const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
 
       // Count commits behind
-      const behindStr = execSync('git rev-list --count HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+      const behindStr = execSync('git rev-list --count HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
       const behind = parseInt(behindStr) || 0;
 
-      // Get list of changed files (only tracked files between HEAD and origin/master)
+      // Get list of changed files (only tracked files between HEAD and origin main)
       let changedFiles = [];
       let commitMessages = [];
       if (behind > 0) {
-        const diffOutput = execSync('git diff --name-only HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+        const diffOutput = execSync('git diff --name-only HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
         changedFiles = diffOutput ? diffOutput.split('\n').filter(f => f.trim()) : [];
-        const logOutput = execSync('git log --oneline HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+        const logOutput = execSync('git log --oneline HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
         commitMessages = logOutput ? logOutput.split('\n').filter(l => l.trim()) : [];
       }
 
@@ -443,7 +443,7 @@ const server = http.createServer(async (req, res) => {
         // Get remote file size from git
         let remoteSize = 0;
         try {
-          const blob = execSync(`git cat-file -s origin/master:${fname}`, { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+          const blob = execSync(`git cat-file -s origin main:${fname}`, { cwd: __dirname, stdio: 'pipe' }).toString().trim();
           remoteSize = parseInt(blob) || 0;
         } catch(e) { /* new file, no local version */ }
         fileDetails[fname] = { localSize, remoteSize };
@@ -484,12 +484,12 @@ const server = http.createServer(async (req, res) => {
       // 2. Check if package.json will change
       let packageWillChange = false;
       try {
-        const diff = execSync('git diff --name-only HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString();
+        const diff = execSync('git diff --name-only HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString();
         packageWillChange = diff.includes('package.json');
       } catch(e) {}
 
       // 3. Git pull from origin
-      const pullOutput = execSync('git pull origin master', { cwd: __dirname, timeout: 30000, stdio: 'pipe' }).toString().trim();
+      const pullOutput = execSync('git pull origin main', { cwd: __dirname, timeout: 30000, stdio: 'pipe' }).toString().trim();
       console.log('[UPDATE] Git pull:', pullOutput);
 
       // 4. npm install if package.json changed
