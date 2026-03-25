@@ -9,9 +9,6 @@ serverCode = serverCode.replace(
   "const filePath = path.join(__dirname, 'lighting-app-V2A.html');"
 );
 
-// Fix origin/master to use the correct remote branch for update checking
-serverCode = serverCode.replace(/origin\/master/g, 'origin/claude/setup-mac-installation-GfViV');
-
 // Add USB shows endpoint - scan /Volumes/ for .lumina files and list drives
 const usbEndpoint = `
   if (req.url === '/api/list-usb-shows' && req.method === 'GET') {
