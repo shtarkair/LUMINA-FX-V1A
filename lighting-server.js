@@ -11,12 +11,14 @@ const { spawn, execSync } = require('child_process');
 const PORT = 3457;
 const ARTNET_PORT = 6454;
 const SACN_PORT = 5568;
-const MAX_UNIVERSES = 64;
+const MAX_UNIVERSES = 64
 const filePath = path.join(__dirname, 'lighting-app.html');
 
 // --- Software Update ---
 const UPDATE_FILES = [
+      'lighting-app-V2A.html',
   'lighting-app.html',
+      'lighting-server-V2A.js',
   'lighting-server.js',
   'fixture-library.json',
   'package.json',
