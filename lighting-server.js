@@ -14,6 +14,21 @@ const SACN_PORT = 5568;
 const MAX_UNIVERSES = 64
 const filePath = path.join(__dirname, 'lighting-app.html');
 
+// --- Auto-setup git for Software Update (first launch) ---
+try {
+  const gitDir = path.join(__dirname, '.git');
+  if (!fs.existsSync(gitDir)) {
+    console.log('[SETUP] No .git found — initializing for software updates...');
+    execSync('git init', { cwd: __dirname, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/shtarkair/LUMINA-FX-V1A.git', { cwd: __dirname, stdio: 'pipe' });
+    execSync('git fetch origin', { cwd: __dirname, timeout: 30000, stdio: 'pipe' });
+    execSync('git reset --mixed origin/main', { cwd: __dirname, stdio: 'pipe' });
+    console.log('[SETUP] Git configured — software updates are now available.');
+  }
+} catch (e) {
+  console.error('[SETUP] Git auto-setup failed (updates may not work):', e.message);
+}
+
 // --- Software Update ---
 const UPDATE_FILES = [
       'lighting-app-V2A.html',
