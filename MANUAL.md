@@ -1,4 +1,4 @@
-# Lumina FX V1A — User Manual
+# Lumina FX V2A — User Manual
 
 **Copyright (c) 2026 Shai Shtarker. All rights reserved.**
 
