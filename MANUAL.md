@@ -14,9 +14,10 @@
 6. [Sequences (SEQ Tab)](#sequences-seq-tab)
 7. [MIDI Control](#midi-control)
 8. [DMX Output Settings](#dmx-output-settings)
-9. [Show File Management](#show-file-management)
-10. [Keyboard Shortcuts](#keyboard-shortcuts)
-11. [Settings & Preferences](#settings--preferences)
+9. [Connecting Lumina to a Lighting System](#connecting-lumina-to-a-lighting-system)
+10. [Show File Management](#show-file-management)
+11. [Keyboard Shortcuts](#keyboard-shortcuts)
+12. [Settings & Preferences](#settings--preferences)
 
 ---
 
@@ -265,7 +266,106 @@ Found in the **SET** tab under Output:
 
 ---
 
-## 9. Show File Management
+## 9. Connecting Lumina to a Lighting System
+
+Lumina can integrate with any ArtNet-compatible lighting system. Below are four connection setups, from simple standalone use to full integration with a GrandMA2 + NPU rig.
+
+**Merge Mode Summary:**
+- Setup 1 — Parallel / Broadcast → **HTP** merge on ArtNet nodes
+- Setup 2 — Series / Unicast → **HTP** merge inside Lumina
+- Setup 3 — Standalone → **no merge** (Lumina is the only source)
+- Setup 4 — ArtNet Injection → **HTP** merge inside GrandMA2
+
+---
+
+### Setup 1 — Parallel / Broadcast (HTP)
+
+**What it is:** Lumina and the lighting console both broadcast ArtNet to the same network. Each ArtNet node receives both streams and merges them using HTP (Highest Takes Precedence).
+
+**When to use:** When you have ArtNet nodes (e.g. Luminex, Artistic Licence, MA 2-Port Node) that support dual-input HTP merge. Works alongside any existing ArtNet console without changing the console's configuration.
+
+**Network setup:**
+- Join the stage ArtNet network (subnet `2.x.x.x`, mask `255.0.0.0`)
+- Set Lumina's IP to a unique address in that subnet (e.g. `2.0.0.10`)
+- In Lumina → **SETTINGS** → ArtNet output: `OUTPUT ON`, broadcast address `2.255.255.255`
+- In Lumina → **SETTINGS** → ArtNet input: `INPUT ON` (so the DMX Monitor can show what the console is sending)
+
+**On each ArtNet node:**
+- Enable **dual-input HTP merge**
+- Set Source A = console IP, Source B = Lumina IP (or leave as broadcast-receive)
+
+**How it works:** Both sources send DMX values. The node outputs whichever value is higher per channel — Lumina effects only "win" when their value is above the console's current value.
+
+**Risk:** Cheap nodes may not support dual-input merge. Test before using in a show.
+
+---
+
+### Setup 2 — Series / Unicast (HTP)
+
+**What it is:** The console sends ArtNet **unicast** directly to the Mac running Lumina. Lumina receives the console's DMX, merges it with its own output using HTP, and then sends the merged result to the ArtNet nodes.
+
+**When to use:** When your nodes do not support dual-input merge, or when you want Lumina to be the single DMX source for the nodes.
+
+**Network setup:**
+- Set the console to send ArtNet **unicast** to the Mac's IP address (e.g. `2.0.0.10`)
+- In Lumina → **SETTINGS** → ArtNet input: `INPUT ON`
+- In Lumina → **SETTINGS** → ArtNet output: `OUTPUT ON`
+- Lumina's `mergeUniverse()` function automatically performs HTP merge between `inputBuffer` (console) and `outputBuffer` (Lumina) on every frame
+
+**How it works:** Lumina sits in the middle of the data path. It receives the console's data, merges it, and forwards the result. The console sees no ArtNet nodes directly — only Lumina does.
+
+**Risk:** If Lumina crashes or the Mac goes offline, the fixtures go dark. Keep a backup route available.
+
+---
+
+### Setup 3 — Standalone (No Merge)
+
+**What it is:** Lumina is the only lighting controller. There is no console. Lumina sends ArtNet directly to fixtures or ArtNet nodes.
+
+**When to use:** Small shows, rehearsals, installations, or when a full console is not available.
+
+**Network setup:**
+- In Lumina → **SETTINGS** → ArtNet output: `OUTPUT ON`, broadcast or unicast to node IPs
+- ArtNet input: not required
+- Patch your fixtures in Lumina and build your cues, sequences, and effects
+
+**How it works:** No merge is needed. Lumina is the single source of truth for all DMX channels.
+
+---
+
+### Setup 4 — ArtNet Injection into GrandMA2 (HTP)
+
+**What it is:** Lumina injects ArtNet directly into a GrandMA2 console. The MA2 receives Lumina's data as an ArtNet input, merges it with its own output using HTP, and forwards the merged result to the stage via MA-Net to the NPU/MPU stage processor, which outputs the final DMX to the fixtures.
+
+**When to use:** The console is already controlling the show through a full MA-Net + NPU rig. You want Lumina to act as a real-time effects engine on top of the existing system — like a pedal board added to an existing signal chain — without touching the existing network wiring or fixture patching.
+
+**Network setup:**
+1. Connect the Mac running Lumina to the **FOH network switch** (the same switch the MA2 is plugged into)
+2. Set Lumina's IP to a unique address in the MA ArtNet subnet (e.g. `2.0.0.10`, mask `255.0.0.0`)
+3. In Lumina → **SETTINGS** → ArtNet output: `OUTPUT ON`, broadcast address `2.255.255.255`
+4. In Lumina → **SETTINGS** → ArtNet input: `INPUT ON` (optional — for DMX Monitor only)
+
+**On the GrandMA2 console:**
+1. Go to **Setup → Network Protocols → Art-Net**
+2. Enable **"Art-Net Input Active"**
+3. Enable **"Network DMX If Alone"**
+4. Add an **Input** line: set `LocalStart`, `Amount`, and `Universe` to match the universes Lumina is sending
+5. Press **Please** to confirm
+
+**Make HTP work:**
+Run this command on the MA2 to zero out all fixture values so Lumina's values can win the HTP merge:
+```
+Attribute Thru At 0
+```
+After running this command, Lumina's values will be the highest on every channel and will take over. When the lighting operator brings up a cue, the MA2's values will rise and take precedence on those channels instead.
+
+**How it works:** MA2 receives Lumina's ArtNet and merges it internally using HTP. The merged result travels via MA-Net (MA's proprietary protocol) to the NPU/MPU stage processor, which outputs final DMX to the fixtures. No changes are needed to the existing stage wiring or node configuration.
+
+**Note:** This is the same method used by tracking systems like BlackTrax — they also inject positional data via ArtNet into the MA2 input for real-time fixture control on top of the show's running cues.
+
+---
+
+## 10. Show File Management
 
 ### Saving a Show
 1. Open the **Lumina Menu** (click the Lumina logo or menu button)
@@ -298,7 +398,7 @@ Show files are saved as `.lumina` format containing all fixtures, cues, sequence
 
 ---
 
-## 10. Keyboard Shortcuts
+## 11. Keyboard Shortcuts
 
 | Action | Windows | Mac |
 |--------|---------|-----|
@@ -313,7 +413,7 @@ Show files are saved as `.lumina` format containing all fixtures, cues, sequence
 
 ---
 
-## 11. Settings & Preferences
+## 12. Settings & Preferences
 
 Found in the **SET** tab:
 
