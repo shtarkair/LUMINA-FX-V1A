@@ -6,8 +6,11 @@ const path = require('path');
 let serverCode = fs.readFileSync(path.join(__dirname, 'lighting-server.js'), 'utf8');
 serverCode = serverCode.replace(
   "const filePath = path.join(__dirname, 'lighting-app.html');",
-  "const filePath = path.join(__dirname, 'lighting-app-V2A.html');"
+  "const filePath = path.join(os.homedir(), 'Desktop', 'Lumina-FX-V1A-Mac', 'lighting-app-V2A.html');"
 );
+
+// Fix origin/master to use the correct remote branch for update checking
+serverCode = serverCode.replace(/origin\/master/g, 'origin/claude/setup-mac-installation-GfViV');
 
 // Add USB shows endpoint - scan /Volumes/ for .lumina files and list drives
 const usbEndpoint = `
