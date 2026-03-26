@@ -44,6 +44,44 @@
 
 ---
 
+### Dedicated Show Computer Setup
+
+If Lumina is installed on a computer used only for the show (not a personal laptop), apply these settings before the event to ensure stable, uninterrupted operation.
+
+#### Network
+- **Turn WiFi off** — use Ethernet only. WiFi adds unnecessary traffic and can interfere with ArtNet.
+- **Set a static IP** — do not use DHCP on a stage ArtNet network. A DHCP lease renewal mid-show can change your IP and drop all DMX output. Recommended: `2.0.0.x` with subnet mask `255.0.0.0`.
+
+#### Power & Sleep
+- **Plug in the power adapter** — never run on battery during a show.
+- **Disable sleep and display sleep** — set both to Never.
+  - Mac: System Settings → Battery → Options → Prevent automatic sleeping
+  - Windows: Settings → Power & Sleep → set both to Never
+- **Set power mode to High Performance**
+  - Mac: System Settings → Battery → set to Never sleep, no low power mode
+  - Windows: Control Panel → Power Options → High Performance
+
+#### System Interruptions
+- **Turn off automatic OS updates** — a forced reboot during a show is a critical failure.
+  - Mac: System Settings → General → Software Update → turn off automatic updates
+  - Windows: Settings → Windows Update → Pause updates
+- **Turn off notifications** (Do Not Disturb / Focus mode) — popups can cover the Lumina UI.
+- **Turn off the screen saver** — it can interrupt the display and trigger GPU power saving.
+
+#### Firewall
+- macOS Firewall may block incoming ArtNet packets (UDP port 6454). If Lumina is not receiving DMX input from the console, check:
+  - Mac: System Settings → Network → Firewall → allow incoming connections for Node.js
+  - Windows: Windows Defender Firewall → allow Node.js on private networks
+
+#### Mac Only — App Nap
+- macOS may throttle apps it considers idle (App Nap). Disable it for Lumina so the DMX engine always runs at full speed:
+  ```
+  defaults write com.apple.dock workspaces-auto-swoosh -bool NO
+  ```
+  Or right-click Lumina FX.app → Get Info → check **Prevent App Nap** if available.
+
+---
+
 ## 2. Interface Overview
 
 The Lumina FX interface is divided into these main areas:
