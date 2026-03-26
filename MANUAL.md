@@ -265,6 +265,17 @@ The **Host** field controls where Lumina sends ArtNet packets:
 
 > **Tip:** If you're unsure, start with broadcast. Switch to unicast only when you need to target one specific device or avoid sending to others on the network.
 
+### Network Interface (IN / OUT)
+
+Unlike a dedicated console, Lumina runs on a general-purpose computer that may have multiple active network interfaces at the same time — for example, **WiFi** (internet) and **Ethernet** (stage network).
+
+- **IN** — the interface Lumina listens on for incoming ArtNet. `Any (all interfaces)` is a safe default.
+- **OUT** — the interface Lumina sends ArtNet from. **Set this to the Ethernet NIC connected to your stage network**, not WiFi or any other interface.
+
+> **Important:** If OUT is left on `Default` and your Mac is connected to both WiFi and Ethernet, ArtNet packets may go out the wrong interface and never reach your fixtures or console.
+
+GrandMA2 does not need this setting because it uses dedicated, purpose-built network ports with no other interfaces to conflict with.
+
 ### DMX Input
 - **Input Enable** — Monitor external DMX input
 - **Input Source IP** — IP address to listen on
