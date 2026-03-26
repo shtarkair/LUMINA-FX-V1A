@@ -11,29 +11,12 @@ const { spawn, execSync } = require('child_process');
 const PORT = 3457;
 const ARTNET_PORT = 6454;
 const SACN_PORT = 5568;
-const MAX_UNIVERSES = 64
+const MAX_UNIVERSES = 64;
 const filePath = path.join(__dirname, 'lighting-app.html');
-
-// --- Auto-setup git for Software Update (first launch) ---
-try {
-  const gitDir = path.join(__dirname, '.git');
-  if (!fs.existsSync(gitDir)) {
-    console.log('[SETUP] No .git found — initializing for software updates...');
-    execSync('git init', { cwd: __dirname, stdio: 'pipe' });
-    execSync('git remote add origin https://github.com/shtarkair/LUMINA-FX-V2A.git', { cwd: __dirname, stdio: 'pipe' });
-    execSync('git fetch origin', { cwd: __dirname, timeout: 30000, stdio: 'pipe' });
-    execSync('git checkout -b main --track origin/main', { cwd: __dirname, stdio: 'pipe' });
-    console.log('[SETUP] Git configured — software updates are now available.');
-  }
-} catch (e) {
-  console.error('[SETUP] Git auto-setup failed (updates may not work):', e.message);
-}
 
 // --- Software Update ---
 const UPDATE_FILES = [
-      'lighting-app-V2A.html',
   'lighting-app.html',
-      'lighting-server-V2A.js',
   'lighting-server.js',
   'fixture-library.json',
   'package.json',
@@ -428,35 +411,25 @@ const server = http.createServer(async (req, res) => {
   // --- Software Update: check GitHub for new commits ---
   if (req.url === '/api/update-check' && req.method === 'GET') {
     try {
-      // Ensure git is initialized (in case auto-setup failed on startup or app was installed from zip)
-      const gitDir = path.join(__dirname, '.git');
-      if (!fs.existsSync(gitDir)) {
-        console.log('[UPDATE] No .git found — initializing now...');
-        execSync('git init', { cwd: __dirname, stdio: 'pipe' });
-        execSync('git remote add origin https://github.com/shtarkair/LUMINA-FX-V2A.git', { cwd: __dirname, stdio: 'pipe' });
-        execSync('git fetch origin', { cwd: __dirname, timeout: 30000, stdio: 'pipe' });
-        execSync('git checkout -b main --track origin/main', { cwd: __dirname, stdio: 'pipe' });
-        console.log('[UPDATE] Git initialized successfully.');
-      }
       // Fetch latest from GitHub
       execSync('git fetch origin', { cwd: __dirname, timeout: 15000, stdio: 'pipe' });
 
       // Get local and remote commit info
       const localCommit = execSync('git rev-parse HEAD', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
-      const remoteCommit = execSync('git rev-parse origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+      const remoteCommit = execSync('git rev-parse origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
       const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
 
       // Count commits behind
-      const behindStr = execSync('git rev-list --count HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+      const behindStr = execSync('git rev-list --count HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
       const behind = parseInt(behindStr) || 0;
 
-      // Get list of changed files (only tracked files between HEAD and origin main)
+      // Get list of changed files (only tracked files between HEAD and origin/master)
       let changedFiles = [];
       let commitMessages = [];
       if (behind > 0) {
-        const diffOutput = execSync('git diff --name-only HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+        const diffOutput = execSync('git diff --name-only HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
         changedFiles = diffOutput ? diffOutput.split('\n').filter(f => f.trim()) : [];
-        const logOutput = execSync('git log --oneline HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+        const logOutput = execSync('git log --oneline HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString().trim();
         commitMessages = logOutput ? logOutput.split('\n').filter(l => l.trim()) : [];
       }
 
@@ -468,7 +441,7 @@ const server = http.createServer(async (req, res) => {
         // Get remote file size from git
         let remoteSize = 0;
         try {
-          const blob = execSync(`git cat-file -s origin main:${fname}`, { cwd: __dirname, stdio: 'pipe' }).toString().trim();
+          const blob = execSync(`git cat-file -s origin/master:${fname}`, { cwd: __dirname, stdio: 'pipe' }).toString().trim();
           remoteSize = parseInt(blob) || 0;
         } catch(e) { /* new file, no local version */ }
         fileDetails[fname] = { localSize, remoteSize };
@@ -509,12 +482,12 @@ const server = http.createServer(async (req, res) => {
       // 2. Check if package.json will change
       let packageWillChange = false;
       try {
-        const diff = execSync('git diff --name-only HEAD..origin main', { cwd: __dirname, stdio: 'pipe' }).toString();
+        const diff = execSync('git diff --name-only HEAD..origin/master', { cwd: __dirname, stdio: 'pipe' }).toString();
         packageWillChange = diff.includes('package.json');
       } catch(e) {}
 
       // 3. Git pull from origin
-      const pullOutput = execSync('git pull origin main', { cwd: __dirname, timeout: 30000, stdio: 'pipe' }).toString().trim();
+      const pullOutput = execSync('git pull origin master', { cwd: __dirname, timeout: 30000, stdio: 'pipe' }).toString().trim();
       console.log('[UPDATE] Git pull:', pullOutput);
 
       // 4. npm install if package.json changed
@@ -731,6 +704,48 @@ function parseArtPollReply(buf) {
     }
     return { ip, port, shortName, longName, numPorts, universes, version: `${versionH}.${versionL}` };
   } catch(e) { return null; }
+}
+
+// Build ArtPollReply so Lumina shows up by name in grandMA, ChamSys, etc.
+function buildArtPollReply(localIp, macAddr) {
+  const buf = Buffer.alloc(239, 0);
+  buf.write('Art-Net\0', 0, 8, 'ascii');
+  buf.writeUInt16LE(OP_POLL_REPLY, 8);
+  const ipParts = (localIp || '0.0.0.0').split('.').map(Number);
+  if (ipParts.length === 4) { buf[10]=ipParts[0]; buf[11]=ipParts[1]; buf[12]=ipParts[2]; buf[13]=ipParts[3]; }
+  buf.writeUInt16LE(ARTNET_PORT, 14);
+  buf[16]=0; buf[17]=14;           // ArtNet protocol version 14
+  buf[18]=0; buf[19]=0;            // Net=0, Sub=0
+  buf[20]=0xFF; buf[21]=0xFF;      // OEM unregistered
+  buf[23]=0xD0;                    // Status1: indicator normal
+  buf.write('LUMINA FX', 26, 9, 'ascii');                         // Short name (18 bytes)
+  buf.write('LUMINA FX Lighting Controller', 44, 29, 'ascii');    // Long name (64 bytes)
+  buf.write('#0001 [0000] LUMINA FX Ready', 108, 28, 'ascii');    // Node report
+  buf.writeUInt16BE(1, 172);       // 1 output port
+  buf[174] = 0x80;                 // Port type: DMX512 output
+  buf[182] = 0x80;                 // GoodOutput: data transmitted
+  buf[190] = 0x00;                 // SwOut: universe 0
+  buf[200] = 0x00;                 // Style: StNode
+  if (macAddr) {
+    const parts = macAddr.split(':').map(s => parseInt(s, 16));
+    for (let i = 0; i < 6 && i < parts.length; i++) buf[201+i] = parts[i] || 0;
+  }
+  buf[211] = 0x08;                 // Status2: supports Art-Net 3
+  return buf;
+}
+
+// Send ArtPollReply broadcast to announce Lumina on the network
+function broadcastArtPollReply() {
+  try {
+    const ifaces = getNetworkInterfaces();
+    if (!ifaces.length) return;
+    const iface = ifaces[0];
+    const reply = buildArtPollReply(iface.ip, iface.mac);
+    const broadcastAddr = iface.broadcast || '255.255.255.255';
+    if (artnetInputSocket && inputSocketBound) {
+      artnetInputSocket.send(reply, 0, reply.length, ARTNET_PORT, broadcastAddr, () => {});
+    }
+  } catch(e) { /* ignore */ }
 }
 
 // --- RDM over ArtNet ---
@@ -1120,6 +1135,14 @@ function onArtNetInput(buf, rinfo) {
       handleRdmPacket(buf, rinfo);
       return;
     }
+    if (op === OP_POLL) {
+      // Console is scanning — reply so Lumina shows up by name
+      const ifaces = getNetworkInterfaces();
+      const iface = ifaces[0] || { ip: '0.0.0.0', mac: '00:00:00:00:00:00' };
+      const reply = buildArtPollReply(iface.ip, iface.mac);
+      artnetInputSocket.send(reply, 0, reply.length, ARTNET_PORT, rinfo.address, () => {});
+      return;
+    }
     if (op === OP_POLL_REPLY) {
       // Collect ArtPollReply during discovery
       const nodeInfo = parseArtPollReply(buf);
@@ -1174,7 +1197,10 @@ function startInputSocket() {
   const bindAddr = networkConfig.inputIP || '0.0.0.0';
   artnetInputSocket.bind(ARTNET_PORT, bindAddr, () => {
     inputSocketBound = true;
+    artnetInputSocket.setBroadcast(true);
     console.log(`[ArtNet INPUT] Listening on ${bindAddr}:${ARTNET_PORT}`);
+    // Announce ourselves so consoles discover Lumina immediately on startup
+    setTimeout(broadcastArtPollReply, 500);
   });
 }
 
