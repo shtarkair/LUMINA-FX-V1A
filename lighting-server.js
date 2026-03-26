@@ -20,9 +20,9 @@ try {
   if (!fs.existsSync(gitDir)) {
     console.log('[SETUP] No .git found — initializing for software updates...');
     execSync('git init', { cwd: __dirname, stdio: 'pipe' });
-    execSync('git remote add origin https://github.com/shtarkair/LUMINA-FX-V1A.git', { cwd: __dirname, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/shtarkair/LUMINA-FX-V2A.git', { cwd: __dirname, stdio: 'pipe' });
     execSync('git fetch origin', { cwd: __dirname, timeout: 30000, stdio: 'pipe' });
-    execSync('git reset --mixed origin/main', { cwd: __dirname, stdio: 'pipe' });
+    execSync('git checkout -b main --track origin/main', { cwd: __dirname, stdio: 'pipe' });
     console.log('[SETUP] Git configured — software updates are now available.');
   }
 } catch (e) {
@@ -428,6 +428,16 @@ const server = http.createServer(async (req, res) => {
   // --- Software Update: check GitHub for new commits ---
   if (req.url === '/api/update-check' && req.method === 'GET') {
     try {
+      // Ensure git is initialized (in case auto-setup failed on startup or app was installed from zip)
+      const gitDir = path.join(__dirname, '.git');
+      if (!fs.existsSync(gitDir)) {
+        console.log('[UPDATE] No .git found — initializing now...');
+        execSync('git init', { cwd: __dirname, stdio: 'pipe' });
+        execSync('git remote add origin https://github.com/shtarkair/LUMINA-FX-V2A.git', { cwd: __dirname, stdio: 'pipe' });
+        execSync('git fetch origin', { cwd: __dirname, timeout: 30000, stdio: 'pipe' });
+        execSync('git checkout -b main --track origin/main', { cwd: __dirname, stdio: 'pipe' });
+        console.log('[UPDATE] Git initialized successfully.');
+      }
       // Fetch latest from GitHub
       execSync('git fetch origin', { cwd: __dirname, timeout: 15000, stdio: 'pipe' });
 
