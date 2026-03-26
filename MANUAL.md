@@ -256,6 +256,15 @@ Found in the **SET** tab under Output:
 - **sACN / E1.31** — Enable sACN output
 - **DMX Rate** — 25, 30, or 40 Hz refresh rate
 
+### ArtNet Host IP — Broadcast vs Unicast
+
+The **Host** field controls where Lumina sends ArtNet packets:
+
+- **Broadcast** — use `x.255.255.255` matching your subnet (e.g. `2.255.255.255` on a `2.x.x.x` network). All ArtNet devices on the network receive the data. Use this for Setups 1, 3, and 4.
+- **Unicast** — use the specific IP of the target device (e.g. `2.0.0.5` for a single ArtNet node, or the MA2's IP for Setup 4 direct injection). Only that device receives the data.
+
+> **Tip:** If you're unsure, start with broadcast. Switch to unicast only when you need to target one specific device or avoid sending to others on the network.
+
 ### DMX Input
 - **Input Enable** — Monitor external DMX input
 - **Input Source IP** — IP address to listen on
