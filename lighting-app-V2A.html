@@ -2996,9 +2996,35 @@ function LightingTimeline() {
     setExpandedGroups(new Set(fixtures.map(fx => `${fx.id}-${groupName}`)));
   }, [fixtures]);
 
+  const gridLongPressRef=useRef(null);
+  const gridLongPressOrigin=useRef(null);
   const handleGridTouchStart=e=>{
     if(e.touches.length===2){e.preventDefault();return;}
-    const t=e.touches[0];handleGridMouseDown({clientX:t.clientX,clientY:t.clientY,target:e.target,stopPropagation:()=>e.stopPropagation(),preventDefault:()=>e.preventDefault()});
+    const t=e.touches[0];
+    const synth={clientX:t.clientX,clientY:t.clientY,target:e.target,stopPropagation:()=>e.stopPropagation(),preventDefault:()=>e.preventDefault()};
+    // Non-draw tools (erase, select, split, copy-paste): fire immediately as before
+    if(tool!=="draw"){
+      handleGridMouseDown(synth);
+      return;
+    }
+    // Draw tool on touch: require long press (500ms) to add a cue intentionally
+    gridLongPressOrigin.current={x:t.clientX,y:t.clientY};
+    gridLongPressRef.current=setTimeout(()=>{
+      gridLongPressRef.current=null;
+      gridLongPressOrigin.current=null;
+      handleGridMouseDown(synth);
+    },500);
+  };
+  const handleGridTouchEndCancel=()=>{
+    if(gridLongPressRef.current){clearTimeout(gridLongPressRef.current);gridLongPressRef.current=null;}
+    gridLongPressOrigin.current=null;
+  };
+  const handleGridTouchMoveCancel=e=>{
+    if(!gridLongPressOrigin.current)return;
+    const t=e.touches[0];
+    const dx=t.clientX-gridLongPressOrigin.current.x;
+    const dy=t.clientY-gridLongPressOrigin.current.y;
+    if(Math.sqrt(dx*dx+dy*dy)>8){handleGridTouchEndCancel();}
   };
   const pinchRef=useRef({dist:0,zoom:1});
   const handleTimelineWheel=useCallback(e=>{
@@ -3517,7 +3543,7 @@ function LightingTimeline() {
 
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         <div onMouseDown={()=>setRightPanelWide(false)} onTouchStart={()=>setRightPanelWide(false)} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        <div ref={timelineRef} onMouseDown={handleGridMouseDown} onTouchStart={handleGridTouchStart} onScroll={e=>setScrollLeft(e.target.scrollLeft)} style={{flex:1,overflow:"auto",position:"relative",cursor:splitMode?"url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><text y=\"26\" font-size=\"28\" fill=\"%23ff8844\">✂</text></svg>') 16 16, crosshair":copyMode?(copiedCues?"copy":"cell"):tool==="draw"?"crosshair":tool==="erase"?"not-allowed":"default"}}>
+        <div ref={timelineRef} onMouseDown={handleGridMouseDown} onTouchStart={handleGridTouchStart} onTouchEnd={handleGridTouchEndCancel} onTouchCancel={handleGridTouchEndCancel} onTouchMove={handleGridTouchMoveCancel} onScroll={e=>setScrollLeft(e.target.scrollLeft)} style={{flex:1,overflow:"auto",position:"relative",cursor:splitMode?"url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><text y=\"26\" font-size=\"28\" fill=\"%23ff8844\">✂</text></svg>') 16 16, crosshair":copyMode?(copiedCues?"copy":"cell"):tool==="draw"?"crosshair":tool==="erase"?"not-allowed":"default"}}>
           <div style={{width:LABEL_W+PARAM_LABEL_W+totalW,minHeight:(RULER_H+(waveformPeaks?40:0))+totalH}}>
             <div style={{position:"sticky",top:0,zIndex:20,width:LABEL_W+PARAM_LABEL_W+totalW,background:"#161a28",borderBottom:"1px solid #1e2a44"}}>
               <div style={{height:RULER_H,display:"flex"}}>
