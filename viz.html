@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMINA FX — Visualizer</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#080b10;color:#ccd;font-family:'Courier New',monospace;overflow:hidden;height:100vh;display:flex;flex-direction:column;}
+  #header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#0d1018;border-bottom:1px solid #1a2030;flex-shrink:0;}
+  #header h1{font-size:13px;letter-spacing:4px;color:#4488ff;font-weight:bold;}
+  #status{display:flex;align-items:center;gap:8px;font-size:11px;}
+  #dot{width:8px;height:8px;border-radius:50%;background:#333;transition:background 0.3s;}
+  #dot.live{background:#44ff88;box-shadow:0 0 6px #44ff88;}
+  #dot.connecting{background:#ffaa44;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  #main{display:flex;flex:1;overflow:hidden;}
+  #stage-wrap{flex:1;position:relative;overflow:hidden;}
+  canvas{display:block;width:100%;height:100%;}
+  #detail{width:280px;background:#0d1018;border-left:1px solid #1a2030;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+  #detail-header{padding:10px 14px;border-bottom:1px solid #1a2030;font-size:10px;letter-spacing:2px;color:#445;}
+  #detail-body{flex:1;padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;}
+  .det-name{font-size:15px;font-weight:bold;color:#eef;letter-spacing:1px;}
+  .det-type{font-size:9px;color:#556;letter-spacing:2px;margin-top:2px;}
+  .mh-wrap{display:flex;gap:10px;align-items:center;}
+  canvas.mh-canvas{border:1px solid #1a2030;border-radius:6px;background:#0a0c12;}
+  .params-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .param-box{background:#0a0e16;border:1px solid #1a2030;border-radius:4px;padding:6px 8px;}
+  .param-label{font-size:8px;color:#445;letter-spacing:1px;text-transform:uppercase;}
+  .param-val{font-size:14px;font-weight:bold;color:#88aaff;margin-top:2px;}
+  .param-unit{font-size:8px;color:#445;}
+  .color-swatch{height:36px;border-radius:4px;border:1px solid #1a2030;transition:background 0.1s;}
+  #no-select{display:flex;flex:1;align-items:center;justify-content:center;color:#223;font-size:11px;letter-spacing:2px;text-align:center;padding:20px;}
+  #footer{padding:5px 16px;background:#0a0d14;border-top:1px solid #1a2030;font-size:9px;color:#334;display:flex;justify-content:space-between;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>LUMINA FX &nbsp;·&nbsp; VISUALIZER</h1>
+  <div id="status">
+    <div id="dot" class="connecting"></div>
+    <span id="status-text">connecting…</span>
+  </div>
+</div>
+
+<div id="main">
+  <div id="stage-wrap">
+    <canvas id="stage"></canvas>
+  </div>
+  <div id="detail">
+    <div id="detail-header">FIXTURE DETAIL</div>
+    <div id="detail-body">
+      <div id="no-select">click a fixture<br>to inspect</div>
+      <div id="detail-content" style="display:none;flex-direction:column;gap:10px;">
+        <div>
+          <div class="det-name" id="d-name">—</div>
+          <div class="det-type" id="d-type">—</div>
+        </div>
+        <div class="color-swatch" id="d-swatch"></div>
+        <div class="mh-wrap">
+          <div>
+            <div style="font-size:8px;color:#445;letter-spacing:1px;margin-bottom:4px;">PAN</div>
+            <canvas class="mh-canvas" id="c-pan" width="110" height="110"></canvas>
+          </div>
+          <div>
+            <div style="font-size:8px;color:#445;letter-spacing:1px;margin-bottom:4px;">TILT</div>
+            <canvas class="mh-canvas" id="c-tilt" width="110" height="110"></canvas>
+          </div>
+        </div>
+        <div class="params-grid" id="d-params"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="footer">
+  <span id="f-fixtures">0 fixtures</span>
+  <span>localhost:3457/viz</span>
+  <span id="f-fps">— fps</span>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let fixtures = [];
+let live = {};
+let selectedId = null;
+let ws = null;
+let fpsCounter = 0, lastFpsTime = performance.now();
+
+// Group → stage row (top of screen = stage back)
+const GROUP_ORDER = ['BACK','TOP BACK','TOP','FLOOR','FRONT 2','FRONT 1','SIDE','CUSTOM'];
+const GROUP_Y = {
+  'BACK':    0.06,
+  'TOP BACK':0.20,
+  'TOP':     0.34,
+  'FLOOR':   0.50,
+  'FRONT 2': 0.63,
+  'FRONT 1': 0.77,
+  'SIDE':    0.50,  // placed on sides
+  'CUSTOM':  0.90,
+};
+const GROUP_LABEL_COLOR = {
+  'BACK':'#2a3a5a','TOP BACK':'#2a3a5a','TOP':'#1e3a2a',
+  'FLOOR':'#3a2a1a','FRONT 2':'#3a2a1a','FRONT 1':'#3a2a1a',
+  'SIDE':'#2a2a3a','CUSTOM':'#2a2a2a'
+};
+
+// ─── Color Computation ───────────────────────────────────────────────────────
+function getFixtureViz(id) {
+  const dimmerRaw = live[`${id}-dimmer`];
+  const dimmer = dimmerRaw !== undefined ? dimmerRaw / 100 : 0;
+
+  // CMY mixing (white beam, subtract colors)
+  let r = 1, g = 1, b = 1;
+  const c = (live[`${id}-cyan`]    || 0) / 100;
+  const m = (live[`${id}-magenta`] || 0) / 100;
+  const y = (live[`${id}-yellow`]  || 0) / 100;
+  r = Math.max(0, 1 - c);
+  g = Math.max(0, 1 - m);
+  b = Math.max(0, 1 - y);
+
+  // Color wheel override
+  const colorSlot = Math.round(live[`${id}-colorwheel`] || 0);
+  if (colorSlot > 0) {
+    const slots = [
+      [1,1,1],[1,0.08,0.08],[1,0.5,0.05],[1,1,0.05],
+      [0.08,1,0.08],[0.05,1,0.9],[0.1,0.3,1],[0.9,0.1,1],
+      [1,0.35,0.05],[0.05,1,0.5],[0.6,0.05,1],[1,0.05,0.6],
+      [1,0.85,0.05],[0.05,0.85,1],[0.6,1,0.05],[0.8,0.05,1]
+    ];
+    const sc = slots[colorSlot % slots.length];
+    r = sc[0]; g = sc[1]; b = sc[2];
+  }
+
+  // Apply dimmer
+  const R = r * dimmer, G = g * dimmer, B = b * dimmer;
+  return {
+    dimmer,
+    r: R, g: G, b: B,
+    hex: `rgb(${Math.round(R*255)},${Math.round(G*255)},${Math.round(B*255)})`,
+    pan:  live[`${id}-pan`]  || 0,
+    tilt: live[`${id}-tilt`] || 0,
+    strobe: live[`${id}-strobe`] || 0,
+  };
+}
+
+// ─── Layout ──────────────────────────────────────────────────────────────────
+function buildLayout(W, H) {
+  // Group fixtures by position
+  const groups = {};
+  fixtures.forEach(fx => {
+    const pos = fx.position || 'CUSTOM';
+    if (!groups[pos]) groups[pos] = [];
+    groups[pos].push(fx);
+  });
+
+  const positions = {};
+  const RADIUS = Math.max(10, Math.min(22, W / (fixtures.length + 5) * 0.9));
+
+  GROUP_ORDER.forEach(grp => {
+    const fxList = groups[grp];
+    if (!fxList || !fxList.length) return;
+    const gy = GROUP_Y[grp] * H;
+
+    if (grp === 'SIDE') {
+      // Split SIDE fixtures: half on left, half on right
+      const mid = Math.ceil(fxList.length / 2);
+      fxList.forEach((fx, i) => {
+        if (i < mid) {
+          positions[fx.id] = { x: RADIUS * 1.4, y: gy + (i - mid/2) * (RADIUS*2.4), r: RADIUS };
+        } else {
+          const j = i - mid;
+          positions[fx.id] = { x: W - RADIUS * 1.4, y: gy + (j - (fxList.length-mid)/2) * (RADIUS*2.4), r: RADIUS };
+        }
+      });
+    } else {
+      const count = fxList.length;
+      const spacing = Math.min(RADIUS * 2.6, (W * 0.85) / count);
+      const totalW = spacing * (count - 1);
+      const startX = W / 2 - totalW / 2;
+      fxList.forEach((fx, i) => {
+        positions[fx.id] = { x: startX + i * spacing, y: gy, r: RADIUS };
+      });
+    }
+  });
+
+  return { positions, radius: RADIUS };
+}
+
+// ─── Canvas Rendering ────────────────────────────────────────────────────────
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+
+function drawStage(W, H, layout) {
+  ctx.clearRect(0, 0, W, H);
+
+  // Group zone labels and dividers
+  const drawn = new Set();
+  GROUP_ORDER.forEach(grp => {
+    if (drawn.has(grp)) return;
+    drawn.add(grp);
+    const gy = GROUP_Y[grp] * H;
+    // Faint divider line
+    ctx.strokeStyle = '#1a2030';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(40, gy - 28); ctx.lineTo(W - 40, gy - 28); ctx.stroke();
+    // Group label
+    ctx.fillStyle = '#1e2a3a';
+    ctx.font = 'bold 9px "Courier New"';
+    ctx.letterSpacing = '3px';
+    ctx.fillText(grp, 42, gy - 16);
+  });
+
+  // Draw fixtures
+  const now = performance.now();
+  fixtures.forEach(fx => {
+    const pos = layout.positions[fx.id];
+    if (!pos) return;
+    const viz = getFixtureViz(fx.id);
+    const { x, y, r } = pos;
+    const isSel = fx.id === selectedId;
+
+    // Glow effect (only when on)
+    if (viz.dimmer > 0.02) {
+      const glowR = r * (1.5 + viz.dimmer * 2.5);
+      const grd = ctx.createRadialGradient(x, y, r * 0.3, x, y, glowR);
+      grd.addColorStop(0, `rgba(${Math.round(viz.r*255)},${Math.round(viz.g*255)},${Math.round(viz.b*255)},${0.5 * viz.dimmer})`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath(); ctx.arc(x, y, glowR, 0, Math.PI*2);
+      ctx.fillStyle = grd; ctx.fill();
+    }
+
+    // Fixture body circle
+    const bodyGrd = ctx.createRadialGradient(x - r*0.3, y - r*0.3, r*0.1, x, y, r);
+    if (viz.dimmer > 0.02) {
+      bodyGrd.addColorStop(0, `rgba(${Math.round(Math.min(1,viz.r*1.4)*255)},${Math.round(Math.min(1,viz.g*1.4)*255)},${Math.round(Math.min(1,viz.b*1.4)*255)},1)`);
+      bodyGrd.addColorStop(1, `rgba(${Math.round(viz.r*180)},${Math.round(viz.g*180)},${Math.round(viz.b*180)},0.9)`);
+    } else {
+      bodyGrd.addColorStop(0, '#1e2535');
+      bodyGrd.addColorStop(1, '#141820');
+    }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = bodyGrd; ctx.fill();
+
+    // Selection ring
+    if (isSel) {
+      ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI*2);
+      ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    // Fixture border
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.strokeStyle = isSel ? '#4488ff55' : (viz.dimmer > 0.02 ? '#ffffff22' : '#1e2535');
+    ctx.lineWidth = 1; ctx.stroke();
+
+    // Fixture name label
+    ctx.fillStyle = isSel ? '#aaccff' : '#334455';
+    ctx.font = `${Math.max(7, r * 0.42)}px "Courier New"`;
+    ctx.textAlign = 'center';
+    ctx.fillText(fx.name, x, y + r + 11);
+
+    // Dimmer % inside circle (if on)
+    if (viz.dimmer > 0.05) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(0.9, viz.dimmer * 1.2)})`;
+      ctx.font = `bold ${Math.max(6, r * 0.38)}px "Courier New"`;
+      ctx.textAlign = 'center';
+      ctx.fillText(Math.round(viz.dimmer * 100) + '%', x, y + r * 0.15);
+    }
+  });
+
+  // Hit zones are computed in buildLayout, no extra draw needed
+  ctx.textAlign = 'left';
+}
+
+// ─── Detail Panel ────────────────────────────────────────────────────────────
+const cPan  = document.getElementById('c-pan');
+const cTilt = document.getElementById('c-tilt');
+const ctxPan  = cPan.getContext('2d');
+const ctxTilt = cTilt.getContext('2d');
+
+function drawPanDial(pan, color) {
+  const W = cPan.width, H = cPan.height, cx = W/2, cy = H/2, r = W/2 - 6;
+  ctxPan.clearRect(0, 0, W, H);
+  // Background arc
+  ctxPan.beginPath(); ctxPan.arc(cx, cy, r, 0, Math.PI*2);
+  ctxPan.strokeStyle = '#1a2030'; ctxPan.lineWidth = 2; ctxPan.stroke();
+  // Range arc (0-540 deg, centered)
+  const startA = -Math.PI * 1.5, rangeA = Math.PI * 3;
+  ctxPan.beginPath(); ctxPan.arc(cx, cy, r, startA, startA + rangeA);
+  ctxPan.strokeStyle = '#1e3040'; ctxPan.lineWidth = 4; ctxPan.stroke();
+  // Current position
+  const normPan = Math.max(0, Math.min(1, pan / 540));
+  const angle = startA + normPan * rangeA;
+  ctxPan.beginPath(); ctxPan.arc(cx, cy, r, startA, angle);
+  ctxPan.strokeStyle = color; ctxPan.lineWidth = 4; ctxPan.stroke();
+  // Needle
+  ctxPan.beginPath();
+  ctxPan.moveTo(cx, cy);
+  ctxPan.lineTo(cx + Math.cos(angle) * (r - 2), cy + Math.sin(angle) * (r - 2));
+  ctxPan.strokeStyle = '#ffffff'; ctxPan.lineWidth = 1.5; ctxPan.stroke();
+  // Center dot
+  ctxPan.beginPath(); ctxPan.arc(cx, cy, 3, 0, Math.PI*2);
+  ctxPan.fillStyle = '#4488ff'; ctxPan.fill();
+  // Value text
+  ctxPan.fillStyle = '#aabbcc'; ctxPan.font = 'bold 11px "Courier New"';
+  ctxPan.textAlign = 'center'; ctxPan.fillText(Math.round(pan) + '°', cx, cy + r + 14);
+}
+
+function drawTiltDial(tilt, color) {
+  const W = cTilt.width, H = cTilt.height, cx = W/2, cy = H/2, r = W/2 - 6;
+  ctxTilt.clearRect(0, 0, W, H);
+  // Moving head silhouette (side view)
+  // Body base
+  ctxTilt.fillStyle = '#1a2030';
+  ctxTilt.beginPath(); ctxTilt.roundRect(cx-14, cy+12, 28, 16, 3); ctxTilt.fill();
+  // Yoke
+  ctxTilt.strokeStyle = '#2a3545'; ctxTilt.lineWidth = 3;
+  ctxTilt.beginPath(); ctxTilt.moveTo(cx-14, cy+20); ctxTilt.lineTo(cx-14, cy-8); ctxTilt.stroke();
+  ctxTilt.beginPath(); ctxTilt.moveTo(cx+14, cy+20); ctxTilt.lineTo(cx+14, cy-8); ctxTilt.stroke();
+  // Head rotated by tilt (0-270 → -45° to 135° visual range centered at 90°)
+  const normTilt = Math.max(0, Math.min(1, tilt / 270));
+  const headAngle = -Math.PI/2 + normTilt * Math.PI * 1.5;
+  ctxTilt.save();
+  ctxTilt.translate(cx, cy - 4);
+  ctxTilt.rotate(headAngle);
+  // Head body
+  ctxTilt.fillStyle = '#2a3850';
+  ctxTilt.beginPath(); ctxTilt.arc(0, 0, 13, 0, Math.PI*2); ctxTilt.fill();
+  // Lens
+  ctxTilt.fillStyle = color;
+  ctxTilt.beginPath(); ctxTilt.arc(0, -9, 5, 0, Math.PI*2); ctxTilt.fill();
+  // Beam cone
+  if (color !== 'rgb(0,0,0)') {
+    const grd = ctxTilt.createLinearGradient(0, -9, 0, -40);
+    grd.addColorStop(0, color.replace('rgb(', 'rgba(').replace(')', ',0.5)'));
+    grd.addColorStop(1, color.replace('rgb(', 'rgba(').replace(')', ',0)'));
+    ctxTilt.fillStyle = grd;
+    ctxTilt.beginPath();
+    ctxTilt.moveTo(-6, -9); ctxTilt.lineTo(-14, -40); ctxTilt.lineTo(14, -40); ctxTilt.lineTo(6, -9);
+    ctxTilt.fill();
+  }
+  ctxTilt.restore();
+  // Value
+  ctxTilt.fillStyle = '#aabbcc'; ctxTilt.font = 'bold 11px "Courier New"';
+  ctxTilt.textAlign = 'center'; ctxTilt.fillText(Math.round(tilt) + '°', cx, H - 4);
+}
+
+function updateDetailPanel(fx) {
+  if (!fx) {
+    document.getElementById('no-select').style.display = 'flex';
+    document.getElementById('detail-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('no-select').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'flex';
+
+  const viz = getFixtureViz(fx.id);
+  document.getElementById('d-name').textContent = fx.name;
+  document.getElementById('d-type').textContent = fx.type || '';
+  document.getElementById('d-swatch').style.background =
+    viz.dimmer > 0.02 ? viz.hex : '#0d1018';
+
+  drawPanDial(viz.pan, viz.dimmer > 0.02 ? viz.hex : '#1a2535');
+  drawTiltDial(viz.tilt, viz.dimmer > 0.02 ? viz.hex : 'rgb(0,0,0)');
+
+  // Param grid
+  const paramKeys = ['dimmer','cyan','magenta','yellow','pan','tilt','strobe','colorwheel'];
+  const paramLabels = {dimmer:'DIM',cyan:'CYN',magenta:'MAG',yellow:'YLW',pan:'PAN',tilt:'TILT',strobe:'STB',colorwheel:'CLR'};
+  const paramUnits  = {dimmer:'%',cyan:'%',magenta:'%',yellow:'%',pan:'°',tilt:'°',strobe:'Hz',colorwheel:'sl'};
+  const grid = document.getElementById('d-params');
+  grid.innerHTML = '';
+  paramKeys.forEach(k => {
+    const val = live[`${fx.id}-${k}`];
+    if (val === undefined || val === 0) return;
+    const box = document.createElement('div');
+    box.className = 'param-box';
+    box.innerHTML = `<div class="param-label">${paramLabels[k]||k}</div><div class="param-val">${Math.round(val)}<span class="param-unit"> ${paramUnits[k]||''}</span></div>`;
+    grid.appendChild(box);
+  });
+}
+
+// ─── Hit Testing ─────────────────────────────────────────────────────────────
+let currentLayout = { positions: {}, radius: 18 };
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top)  * scaleY;
+
+  let hit = null;
+  fixtures.forEach(fx => {
+    const pos = currentLayout.positions[fx.id];
+    if (!pos) return;
+    const dist = Math.sqrt((mx - pos.x)**2 + (my - pos.y)**2);
+    if (dist <= pos.r + 4) hit = fx;
+  });
+  selectedId = hit ? hit.id : null;
+  updateDetailPanel(hit);
+});
+
+// ─── Render Loop ─────────────────────────────────────────────────────────────
+function resize() {
+  const wrap = document.getElementById('stage-wrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+function frame() {
+  requestAnimationFrame(frame);
+  resize();
+  const W = canvas.width, H = canvas.height;
+  currentLayout = buildLayout(W, H);
+  drawStage(W, H, currentLayout);
+
+  // Update selected panel
+  if (selectedId) {
+    const fx = fixtures.find(f => f.id === selectedId);
+    if (fx) {
+      const viz = getFixtureViz(fx.id);
+      document.getElementById('d-swatch').style.background =
+        viz.dimmer > 0.02 ? viz.hex : '#0d1018';
+      drawPanDial(viz.pan, viz.dimmer > 0.02 ? viz.hex : '#1a2535');
+      drawTiltDial(viz.tilt, viz.dimmer > 0.02 ? viz.hex : 'rgb(0,0,0)');
+    }
+  }
+
+  // FPS counter
+  fpsCounter++;
+  const now = performance.now();
+  if (now - lastFpsTime > 1000) {
+    document.getElementById('f-fps').textContent = fpsCounter + ' fps';
+    fpsCounter = 0; lastFpsTime = now;
+  }
+}
+
+// ─── WebSocket ───────────────────────────────────────────────────────────────
+function connect() {
+  const dot = document.getElementById('dot');
+  const statusText = document.getElementById('status-text');
+  dot.className = 'connecting';
+  statusText.textContent = 'connecting…';
+
+  ws = new WebSocket('ws://localhost:3457');
+
+  ws.onopen = () => {
+    dot.className = 'live';
+    statusText.textContent = 'live';
+  };
+
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'viz_state') {
+        if (msg.fixtures) fixtures = msg.fixtures;
+        if (msg.live)     live     = msg.live;
+        document.getElementById('f-fixtures').textContent =
+          fixtures.length + ' fixture' + (fixtures.length !== 1 ? 's' : '');
+      }
+    } catch {}
+  };
+
+  ws.onclose = () => {
+    dot.className = '';
+    dot.style.background = '#333';
+    statusText.textContent = 'disconnected — retrying…';
+    setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+connect();
+frame();
+</script>
+</body>
+</html>

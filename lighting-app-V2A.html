@@ -2967,6 +2967,18 @@ function LightingTimeline() {
     return () => clearInterval(iv);
   }, [outputConfig.enabled, outputConfig.dmxRate, outputConfig.inputEnabled]);
 
+  // Visualizer: send fixture layout + live values at 20fps to /viz page
+  const fixturesRef=useRef(fixtures);
+  useEffect(()=>{fixturesRef.current=fixtures;},[fixtures]);
+  useEffect(()=>{
+    const iv=setInterval(()=>{
+      const ws=outputWsRef.current;
+      if(!ws||ws.readyState!==WebSocket.OPEN) return;
+      ws.send(JSON.stringify({type:'viz_state',fixtures:fixturesRef.current,live:liveValuesRef.current}));
+    },50);
+    return ()=>clearInterval(iv);
+  },[]);
+
   const {rows, totalH} = useMemo(() => {
     const rows=[];
     let yOff=0;
@@ -2999,21 +3011,6 @@ function LightingTimeline() {
   const handleGridTouchStart=e=>{
     if(e.touches.length===2){e.preventDefault();return;}
     const t=e.touches[0];handleGridMouseDown({clientX:t.clientX,clientY:t.clientY,target:e.target,stopPropagation:()=>e.stopPropagation(),preventDefault:()=>e.preventDefault()});
-  };
-  // Double-click shortcut: place a cue directly on any param lane regardless of current tool
-  const handleGridDoubleClick=e=>{
-    if(e.target.dataset.cue) return;
-    const rect=timelineRef.current.getBoundingClientRect();
-    const x=e.clientX-rect.left-LABEL_W-PARAM_LABEL_W+timelineRef.current.scrollLeft;
-    const y=e.clientY-rect.top-RULER_H+timelineRef.current.scrollTop;
-    const beat=snapBeat(Math.max(0,xToBeat(x)));
-    const row=rows.find(r=>r.type==="param"&&y>=r.y&&y<r.y+r.h);
-    if(!row) return;
-    const param=getParam(row.paramId);
-    if(!param) return;
-    const newCue={id:genId(),fixtureId:row.fixtureId,param:row.paramId,beat,duration:2,value:Math.round((param.min+param.max)/2),easing:"linear",fadeIn:0,fadeOut:0,startValue:param.min,endValue:param.min};
-    setSelectedCue(newCue.id);
-    setCues(prev=>[...prev,newCue]);
   };
   const pinchRef=useRef({dist:0,zoom:1});
   const handleTimelineWheel=useCallback(e=>{
@@ -3058,7 +3055,6 @@ function LightingTimeline() {
     el.addEventListener('dblclick',onDblClick);
     return ()=>{el.removeEventListener('wheel',handleTimelineWheel);el.removeEventListener('touchmove',onTouchMove);el.removeEventListener('touchend',onTouchEnd);el.removeEventListener('touchstart',onTouchStart);el.removeEventListener('dblclick',onDblClick);};
   },[handleTimelineWheel,zoom]);
-  const lastGridClickRef=useRef({time:0,x:0,y:0});
   const handleGridMouseDown=e=>{
     if(e.target.dataset.cue) return;
     const rect=timelineRef.current.getBoundingClientRect();
@@ -3066,20 +3062,6 @@ function LightingTimeline() {
     const y=e.clientY-rect.top-RULER_H+timelineRef.current.scrollTop;
     const beat=snapBeat(Math.max(0,xToBeat(x)));
     const row=rows.find(r=>r.type==="param"&&y>=r.y&&y<r.y+r.h);
-    // Double-click detection: two clicks within 350ms on the same lane = place a cue
-    const now=Date.now();
-    const last=lastGridClickRef.current;
-    if(row&&now-last.time<350&&Math.abs(e.clientX-last.x)<10&&Math.abs(e.clientY-last.y)<10){
-      lastGridClickRef.current={time:0,x:0,y:0};
-      const param=getParam(row.paramId);
-      if(param){
-        const newCue={id:genId(),fixtureId:row.fixtureId,param:row.paramId,beat,duration:2,value:Math.round((param.min+param.max)/2),easing:"linear",fadeIn:0,fadeOut:0,startValue:param.min,endValue:param.min};
-        setSelectedCue(newCue.id);
-        setCues(prev=>[...prev,newCue]);
-        return;
-      }
-    }
-    lastGridClickRef.current={time:now,x:e.clientX,y:e.clientY};
     if(splitMode){
       const splitBeat=beat;
       setCues(prev=>{
@@ -3666,17 +3648,7 @@ function LightingTimeline() {
                         {isMuted?"M":liveVal!==undefined?Math.round(liveVal):"\u2014"}
                       </div>
                     </div>
-                    <div style={{position:"relative",flex:1,height:"100%",overflow:"hidden"}} onDoubleClick={e=>{
-                        if(e.target.dataset.cue) return;
-                        const rect=e.currentTarget.getBoundingClientRect();
-                        const x=e.clientX-rect.left+timelineRef.current.scrollLeft;
-                        const beat=snapBeat(Math.max(0,xToBeat(x)));
-                        const param=getParam(row.paramId);
-                        if(!param) return;
-                        const newCue={id:genId(),fixtureId:row.fixtureId,param:row.paramId,beat,duration:2,value:Math.round((param.min+param.max)/2),easing:"linear",fadeIn:0,fadeOut:0,startValue:param.min,endValue:param.min};
-                        setSelectedCue(newCue.id);
-                        setCues(prev=>[...prev,newCue]);
-                      }}>
+                    <div style={{position:"relative",flex:1,height:"100%",overflow:"hidden"}}>
                       <BeatGrid totalBeats={TOTAL_BEATS} beatWidth={bw}/>
                       {loopEnabled&&<div style={{position:"absolute",top:0,height:"100%",left:beatToX(loopStart),width:beatToX(loopEnd-loopStart),background:"rgba(68,255,170,0.03)",pointerEvents:"none"}}/>}
                       {rightTab==="fx"&&<div style={{position:"absolute",top:0,height:"100%",left:beatToX(fxStart),width:beatToX(fxEnd-fxStart),background:"rgba(187,68,255,0.03)",pointerEvents:"none"}}/>}

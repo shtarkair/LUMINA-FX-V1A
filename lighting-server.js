@@ -245,6 +245,7 @@ let universeRoutingConfig = {};
 let outputRate = 25; // ms between frames (40Hz)
 let outputInterval = null;
 let outputEnabled = false;
+let lastVizState = null; // latest fixture layout + live values for /viz page
 
 // --- Monitor config ---
 let monitorEnabled = false;
@@ -572,6 +573,16 @@ setTimeout(() => {
         'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=86400'
       });
+      res.end(data);
+    });
+    return;
+  }
+  // Visualizer page
+  if (req.url === '/viz') {
+    const vizPath = path.join(os.homedir(), 'Desktop', 'Lumina-FX-V1A-Mac', 'viz.html');
+    fs.readFile(vizPath, (err, data) => {
+      if (err) { res.writeHead(404); res.end('Visualizer not found'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(data);
     });
     return;
@@ -1393,6 +1404,8 @@ wss.on('connection', (ws) => {
   // Send available NICs to client
   const nics = getNetworkInterfaces();
   ws.send(JSON.stringify({ type: 'nic_list', interfaces: nics, current: networkConfig }));
+  // Send last known viz state to new connections (so /viz loads instantly)
+  if (lastVizState) ws.send(JSON.stringify(lastVizState));
   console.log('[NICS]', nics.map(n => `${n.name}:${n.ip}`).join(', ') || 'none');
 
   ws.on('message', (raw) => {
@@ -1487,6 +1500,11 @@ wss.on('connection', (ws) => {
       }
 
       // --- Output control ---
+      if (msg.type === 'viz_state') {
+        lastVizState = msg;
+        broadcastToClients(msg); // relay to /viz page
+        return;
+      }
       if (msg.type === 'output_control') {
         outputEnabled = !!msg.enabled;
         if (outputEnabled) startOutputLoop();
