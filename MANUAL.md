@@ -24,13 +24,13 @@
 ## 1. Getting Started
 
 ### Installation (Mac)
-1. Download **Lumina-FX-V1A-Mac.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V1A/releases)
+1. Download **Lumina-FX-V1A-Mac.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V2A/releases)
 2. Unzip the file
 3. Double-click **Lumina FX.app**
 4. On first launch, the app installs required components automatically
 
 ### Installation (Windows)
-1. Download **Lumina-FX-V1A-Windows.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V1A/releases)
+1. Download **Lumina-FX-V1A-Windows.zip** from the [Releases page](https://github.com/shtarkair/LUMINA-FX-V2A/releases)
 2. Unzip the file
 3. Double-click **Lumina FX.vbs**
 4. On first launch, the app installs required components automatically
@@ -489,4 +489,4 @@ Found in the **SET** tab:
 ## Need Help?
 
 Visit the GitHub repository for updates and community show files:
-https://github.com/shtarkair/LUMINA-FX-V1A
+https://github.com/shtarkair/LUMINA-FX-V2A
